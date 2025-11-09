@@ -1,5 +1,5 @@
 {
-  "capture_dir": "/home/pi/captures",
+  "capture_dir": "/mnt/nas/dt/raw",
   "temperature_threshold": 28.0,
   "presence_pixels_required": 3,
   "stop_delay_seconds": 60,
@@ -7,8 +7,9 @@
   "video_resolution": "1920x1080",
   "video_framerate": 30,
   "audio_samplerate": 48000,
-  "audio_channels": 1,
+  "audio_channels": 2,
   "video_codec": "h264",
-  "audio_device": "plughw:1,0"
+  "audio_device": "plughw:2,0",
+  "autofocus_mode": "auto"
 }
 

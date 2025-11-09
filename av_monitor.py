@@ -24,6 +24,7 @@ from enum import Enum
 import signal
 import sys
 import json
+import socket
 from typing import Optional
 
 # Configure logging
@@ -142,12 +143,33 @@ class AVRecorder:
         self.current_file: Optional[Path] = None
         self.temp_video_file: Optional[Path] = None
         self.temp_audio_file: Optional[Path] = None
+        self.hostname = socket.gethostname()  # Get device hostname
     
     def generate_filename(self) -> Path:
-        """Generate timestamped filename"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"rec_{timestamp}.mp4"
-        return Path(self.config.capture_dir) / filename
+        """
+        Generate timestamped filename with hierarchical folder structure
+        
+        Structure: /mnt/nas/dt/raw/YYYY/MM/DD/MMDDYYYY_hostname_HHMMSS.mp4
+        Example: /mnt/nas/dt/raw/2025/11/09/11092025_sauron-unit-1_143022.mp4
+        """
+        now = datetime.now()
+        
+        # Create year/month/day folder structure
+        year_folder = now.strftime("%Y")
+        month_folder = now.strftime("%m")
+        day_folder = now.strftime("%d")
+        
+        capture_path = Path(self.config.capture_dir) / year_folder / month_folder / day_folder
+        
+        # Create directories if they don't exist
+        capture_path.mkdir(parents=True, exist_ok=True)
+        
+        # Generate filename: MMDDYYYY_hostname_HHMMSS.mp4
+        date_str = now.strftime("%m%d%Y")
+        time_str = now.strftime("%H%M%S")
+        filename = f"{date_str}_{self.hostname}_{time_str}.mp4"
+        
+        return capture_path / filename
     
     def start_recording(self) -> bool:
         """
@@ -162,8 +184,10 @@ class AVRecorder:
         
         self.current_file = self.generate_filename()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.temp_video_file = Path(self.config.capture_dir) / f"temp_video_{timestamp}.mp4"
-        self.temp_audio_file = Path(self.config.capture_dir) / f"temp_audio_{timestamp}.wav"
+        
+        # Store temp files in /tmp to avoid cluttering NAS
+        self.temp_video_file = Path(f"/tmp/temp_video_{timestamp}.mp4")
+        self.temp_audio_file = Path(f"/tmp/temp_audio_{timestamp}.wav")
         
         width, height = self.config.video_resolution.split('x')
         
