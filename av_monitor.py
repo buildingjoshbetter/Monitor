@@ -62,10 +62,10 @@ class Config:
             "video_resolution": "1920x1080",
             "video_framerate": 30,
             "audio_samplerate": 48000,
-            "audio_channels": 1,
+            "audio_channels": 2,
             "video_codec": "h264",  # or "h265"
-            "audio_device": "plughw:1,0",  # WM8960 ALSA device
-            "autofocus_mode": "auto",  # auto, continuous, or manual
+            "audio_device": "plughw:2,0",  # WM8960 ALSA device
+            "autofocus_mode": "auto",  # Autofocus mode for camera
         }
         
         try:
@@ -134,11 +134,14 @@ class IRSensor:
 
 
 class AVRecorder:
-    """Manages audio/video recording using rpicam-vid"""
+    """Manages audio/video recording (separate streams, merged on stop)"""
     def __init__(self, config: Config):
         self.config = config
-        self.process: Optional[subprocess.Popen] = None
+        self.video_process: Optional[subprocess.Popen] = None
+        self.audio_process: Optional[subprocess.Popen] = None
         self.current_file: Optional[Path] = None
+        self.temp_video_file: Optional[Path] = None
+        self.temp_audio_file: Optional[Path] = None
     
     def generate_filename(self) -> Path:
         """Generate timestamped filename"""
@@ -148,117 +151,237 @@ class AVRecorder:
     
     def start_recording(self) -> bool:
         """
-        Start rpicam-vid recording with audio
+        Start audio and video recording (separate processes)
         
         Returns:
             True if recording started successfully, False otherwise
         """
-        if self.process is not None:
+        if self.video_process is not None or self.audio_process is not None:
             logger.warning("Recording already in progress")
             return False
         
         self.current_file = self.generate_filename()
-        
-        # Build rpicam-vid command
-        # Format: rpicam-vid -t 0 --width 1920 --height 1080 --framerate 30 \
-        #         --codec h264 --audio --audio-device plughw:1,0 --audio-samplerate 48000 \
-        #         --audio-channels 1 -o output.mp4
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.temp_video_file = Path(self.config.capture_dir) / f"temp_video_{timestamp}.mp4"
+        self.temp_audio_file = Path(self.config.capture_dir) / f"temp_audio_{timestamp}.wav"
         
         width, height = self.config.video_resolution.split('x')
         
-        cmd = [
+        # Build audio recording command (arecord)
+        audio_cmd = [
+            'arecord',
+            '-D', self.config.audio_device,
+            '-f', 'S16_LE',
+            '-r', str(self.config.audio_samplerate),
+            '-c', str(self.config.audio_channels),
+            str(self.temp_audio_file)
+        ]
+        
+        # Build video recording command (rpicam-vid, NO audio)
+        video_cmd = [
             'rpicam-vid',
             '-t', '0',  # Infinite duration (we'll stop manually)
             '--width', width,
             '--height', height,
             '--framerate', str(self.config.video_framerate),
             '--codec', self.config.video_codec,
-            '--autofocus-mode', self.config.autofocus_mode,  # Autofocus mode for 64MP camera
-            '--audio-codec', 'aac',  # Audio codec (AAC for MP4)
-            '--audio-device', self.config.audio_device,
-            '--audio-samplerate', str(self.config.audio_samplerate),
-            '--audio-channels', str(self.config.audio_channels),
-            '-o', str(self.current_file),
-            '--nopreview',  # No preview window
+            '--autofocus-mode', self.config.autofocus_mode,
+            '-o', str(self.temp_video_file),
+            '--nopreview',
         ]
         
         try:
             logger.info(f"Starting recording: {self.current_file}")
-            logger.debug(f"Command: {' '.join(cmd)}")
+            logger.debug(f"Audio command: {' '.join(audio_cmd)}")
+            logger.debug(f"Video command: {' '.join(video_cmd)}")
             
-            self.process = subprocess.Popen(
-                cmd,
+            # Start audio recording first
+            self.audio_process = subprocess.Popen(
+                audio_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN)
             )
             
-            # Give it a moment to start
+            # Start video recording immediately after
+            self.video_process = subprocess.Popen(
+                video_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN)
+            )
+            
+            # Give them a moment to start
             time.sleep(0.5)
             
-            # Check if process started successfully
-            if self.process.poll() is not None:
-                # Process already terminated
-                _, stderr = self.process.communicate()
-                logger.error(f"rpicam-vid failed to start: {stderr.decode()}")
-                self.process = None
-                self.current_file = None
+            # Check if processes started successfully
+            if self.audio_process.poll() is not None:
+                _, stderr = self.audio_process.communicate()
+                logger.error(f"arecord failed to start: {stderr.decode()}")
+                self._cleanup_failed_start()
                 return False
             
-            logger.info("Recording started successfully")
+            if self.video_process.poll() is not None:
+                _, stderr = self.video_process.communicate()
+                logger.error(f"rpicam-vid failed to start: {stderr.decode()}")
+                self._cleanup_failed_start()
+                return False
+            
+            logger.info("Audio and video recording started successfully")
             return True
             
         except Exception as e:
             logger.error(f"Failed to start recording: {e}")
-            self.process = None
-            self.current_file = None
+            self._cleanup_failed_start()
             return False
+    
+    def _cleanup_failed_start(self):
+        """Clean up after failed recording start"""
+        if self.audio_process:
+            try:
+                self.audio_process.kill()
+                self.audio_process.wait()
+            except:
+                pass
+            self.audio_process = None
+        
+        if self.video_process:
+            try:
+                self.video_process.kill()
+                self.video_process.wait()
+            except:
+                pass
+            self.video_process = None
+        
+        self.current_file = None
+        self.temp_audio_file = None
+        self.temp_video_file = None
     
     def stop_recording(self) -> bool:
         """
-        Stop recording gracefully
+        Stop recording gracefully and merge audio/video
         
         Returns:
             True if stopped successfully, False otherwise
         """
-        if self.process is None:
+        if self.video_process is None and self.audio_process is None:
             logger.warning("No recording in progress")
             return False
         
         try:
             logger.info("Stopping recording...")
             
-            # Send SIGINT to rpicam-vid for graceful shutdown
-            self.process.send_signal(signal.SIGINT)
+            # Stop video process (SIGINT for graceful shutdown)
+            if self.video_process:
+                self.video_process.send_signal(signal.SIGINT)
+                try:
+                    self.video_process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Video process didn't stop gracefully, forcing termination")
+                    self.video_process.kill()
+                    self.video_process.wait()
             
-            # Wait for process to finish (with timeout)
-            try:
-                self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                logger.warning("Process didn't stop gracefully, forcing termination")
-                self.process.kill()
-                self.process.wait()
+            # Stop audio process (SIGTERM for arecord)
+            if self.audio_process:
+                self.audio_process.terminate()
+                try:
+                    self.audio_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Audio process didn't stop gracefully, forcing termination")
+                    self.audio_process.kill()
+                    self.audio_process.wait()
             
-            # Check if file was created successfully
-            if self.current_file and self.current_file.exists():
+            # Check if temp files exist
+            if not self.temp_video_file or not self.temp_video_file.exists():
+                logger.error(f"Temporary video file not found: {self.temp_video_file}")
+                self._cleanup_recording()
+                return False
+            
+            if not self.temp_audio_file or not self.temp_audio_file.exists():
+                logger.error(f"Temporary audio file not found: {self.temp_audio_file}")
+                self._cleanup_recording()
+                return False
+            
+            # Merge audio and video with ffmpeg
+            logger.info("Merging audio and video...")
+            merge_success = self._merge_av_files()
+            
+            if merge_success:
+                # Delete temporary files
+                try:
+                    self.temp_video_file.unlink()
+                    self.temp_audio_file.unlink()
+                    logger.info("Temporary files cleaned up")
+                except Exception as e:
+                    logger.warning(f"Could not delete temporary files: {e}")
+                
                 file_size = self.current_file.stat().st_size
                 logger.info(f"Recording saved: {self.current_file} ({file_size} bytes)")
             else:
-                logger.error(f"Recording file not found: {self.current_file}")
+                logger.error("Failed to merge audio and video")
             
-            self.process = None
-            self.current_file = None
-            return True
+            self._cleanup_recording()
+            return merge_success
             
         except Exception as e:
             logger.error(f"Error stopping recording: {e}")
-            self.process = None
-            self.current_file = None
+            self._cleanup_recording()
             return False
+    
+    def _merge_av_files(self) -> bool:
+        """
+        Merge audio and video files using ffmpeg
+        
+        Returns:
+            True if merge successful, False otherwise
+        """
+        merge_cmd = [
+            'ffmpeg',
+            '-i', str(self.temp_video_file),
+            '-i', str(self.temp_audio_file),
+            '-c:v', 'copy',  # Copy video stream (no re-encode)
+            '-c:a', 'aac',   # Encode audio to AAC
+            '-shortest',     # Match shortest stream duration
+            '-y',            # Overwrite output file
+            str(self.current_file)
+        ]
+        
+        try:
+            logger.debug(f"Merge command: {' '.join(merge_cmd)}")
+            result = subprocess.run(
+                merge_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                logger.info("Audio/video merge successful")
+                return True
+            else:
+                logger.error(f"ffmpeg merge failed: {result.stderr.decode()}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            logger.error("ffmpeg merge timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Error running ffmpeg: {e}")
+            return False
+    
+    def _cleanup_recording(self):
+        """Clean up recording state"""
+        self.video_process = None
+        self.audio_process = None
+        self.current_file = None
+        self.temp_video_file = None
+        self.temp_audio_file = None
     
     def is_recording(self) -> bool:
         """Check if currently recording"""
-        return self.process is not None and self.process.poll() is None
+        video_active = self.video_process is not None and self.video_process.poll() is None
+        audio_active = self.audio_process is not None and self.audio_process.poll() is None
+        return video_active or audio_active
 
 
 class MonitorSystem:
