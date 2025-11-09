@@ -7,6 +7,9 @@ adafruit-circuitpython-amg88xx>=1.2.15
 # Required by Adafruit libraries
 adafruit-blinka>=8.20.0
 
+# GPIO control for status LEDs
+gpiozero>=2.0
+
 # I2C and GPIO support (auto-installed with blinka but listed for clarity)
 # These are typically already present on Raspberry Pi OS
 

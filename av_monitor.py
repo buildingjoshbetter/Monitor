@@ -7,9 +7,13 @@ Hardware Requirements:
 - Arducam 64MP OwlSight camera (via CAMERA port)
 - Waveshare WM8960 Audio HAT (ALSA)
 - AMG8833 IR thermal sensor (I2C)
+- Status LEDs:
+  * Orange LED on GPIO 19 (monitoring/idle state)
+  * Red LED on GPIO 26 (active recording)
 
 This application monitors the AMG8833 IR sensor and automatically
 starts/stops A/V recording based on human presence detection.
+Visual status indicators via LEDs provide real-time feedback.
 """
 
 import board
@@ -26,6 +30,7 @@ import sys
 import json
 import socket
 from typing import Optional
+from gpiozero import LED
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +89,49 @@ class Config:
         
         # Ensure capture directory exists
         Path(self.capture_dir).mkdir(parents=True, exist_ok=True)
+
+
+class StatusLEDs:
+    """Status LED controller for visual feedback"""
+    def __init__(self, orange_pin: int = 19, red_pin: int = 26):
+        """
+        Initialize status LEDs
+        
+        Args:
+            orange_pin: GPIO pin for orange LED (monitoring/idle)
+            red_pin: GPIO pin for red LED (recording)
+        """
+        self.orange_led = LED(orange_pin)
+        self.red_led = LED(red_pin)
+        logger.info(f"Status LEDs initialized (Orange: GPIO{orange_pin}, Red: GPIO{red_pin})")
+        
+        # Start with orange LED on (system idle/monitoring)
+        self.set_idle()
+    
+    def set_idle(self):
+        """Set LEDs to idle state (orange on, red off)"""
+        self.orange_led.on()
+        self.red_led.off()
+        logger.debug("LED Status: IDLE (orange)")
+    
+    def set_recording(self):
+        """Set LEDs to recording state (orange off, red on)"""
+        self.orange_led.off()
+        self.red_led.on()
+        logger.debug("LED Status: RECORDING (red)")
+    
+    def set_waiting(self):
+        """Set LEDs to waiting state (red blinking)"""
+        # Keep red on during waiting period
+        self.orange_led.off()
+        self.red_led.on()
+        logger.debug("LED Status: WAITING (red)")
+    
+    def cleanup(self):
+        """Turn off all LEDs"""
+        self.orange_led.off()
+        self.red_led.off()
+        logger.debug("LED Status: OFF")
 
 
 class IRSensor:
@@ -412,6 +460,7 @@ class MonitorSystem:
     """Main monitoring system coordinator"""
     def __init__(self, config: Config):
         self.config = config
+        self.status_leds = StatusLEDs()  # Initialize LED indicators
         self.ir_sensor = IRSensor(
             threshold=config.temperature_threshold,
             min_pixels=config.presence_pixels_required
@@ -427,6 +476,7 @@ class MonitorSystem:
         self.running = False
         if self.recorder.is_recording():
             self.recorder.stop_recording()
+        self.status_leds.cleanup()  # Turn off LEDs
         sys.exit(0)
     
     def run(self):
@@ -449,18 +499,20 @@ class MonitorSystem:
                 presence = self.ir_sensor.detect_presence()
                 current_time = time.time()
                 
-                # State machine logic
+                # State machine logic with LED indicators
                 if self.state == RecordingState.IDLE:
                     if presence:
                         logger.info("Presence detected! Starting recording...")
                         if self.recorder.start_recording():
                             self.state = RecordingState.RECORDING
+                            self.status_leds.set_recording()  # Turn on red LED
                             self.absence_timer = None
                 
                 elif self.state == RecordingState.RECORDING:
                     if not presence:
                         logger.info("Presence lost, starting countdown...")
                         self.state = RecordingState.WAITING_TO_STOP
+                        self.status_leds.set_waiting()  # Keep red LED on during wait
                         self.absence_timer = current_time
                 
                 elif self.state == RecordingState.WAITING_TO_STOP:
@@ -468,6 +520,7 @@ class MonitorSystem:
                         # Presence returned, cancel countdown
                         logger.info("Presence returned, canceling stop countdown")
                         self.state = RecordingState.RECORDING
+                        self.status_leds.set_recording()  # Back to red LED
                         self.absence_timer = None
                     elif self.absence_timer is not None:
                         elapsed = current_time - self.absence_timer
@@ -475,6 +528,7 @@ class MonitorSystem:
                             logger.info(f"No presence for {self.config.stop_delay_seconds}s, stopping recording")
                             self.recorder.stop_recording()
                             self.state = RecordingState.IDLE
+                            self.status_leds.set_idle()  # Back to orange LED
                             self.absence_timer = None
                 
                 # Poll interval
@@ -488,6 +542,7 @@ class MonitorSystem:
             if self.recorder.is_recording():
                 logger.info("Stopping recording before exit...")
                 self.recorder.stop_recording()
+            self.status_leds.cleanup()  # Turn off LEDs on exit
             logger.info("=== A/V Monitoring System Stopped ===")
 
 
