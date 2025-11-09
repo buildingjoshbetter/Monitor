@@ -1,0 +1,28 @@
+[Unit]
+Description=A/V Monitor with IR Trigger
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Monitor
+ExecStart=/usr/bin/python3 /home/pi/Monitor/av_monitor.py
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=av-monitor
+
+# Security and permissions
+# Camera and I2C access required
+SupplementaryGroups=video i2c audio
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
+

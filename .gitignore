@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Log files
+*.log
+
+# Captured recordings
+captures/
+*.mp4
+*.mkv
+*.avi
+
+# Configuration files with sensitive data
+/config_local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+test_*.wav
+test_*.mp4
+
