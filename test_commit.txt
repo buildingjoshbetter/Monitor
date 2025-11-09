@@ -1,0 +1,13 @@
+Hello World!
+
+This is a test file to verify all changes are committed and pushed correctly.
+Generated: 2025-11-09
+
+All system files updated:
+✅ av_monitor.py - Now records audio/video separately and merges with ffmpeg
+✅ config.json - Updated for correct audio device (plughw:2,0)
+✅ All documentation files synced
+✅ Installation and validation scripts in place
+
+System ready for deployment!
+
