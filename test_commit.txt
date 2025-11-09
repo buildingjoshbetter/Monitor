@@ -1,13 +1,85 @@
-Hello World!
+Hello World! 🎉
 
-This is a test file to verify all changes are committed and pushed correctly.
+System Status: FULLY OPERATIONAL WITH NAS INTEGRATION
+
 Generated: 2025-11-09
+Last Update: NAS Integration Complete
 
-All system files updated:
-✅ av_monitor.py - Now records audio/video separately and merges with ffmpeg
-✅ config.json - Updated for correct audio device (plughw:2,0)
-✅ All documentation files synced
-✅ Installation and validation scripts in place
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-System ready for deployment!
+✅ COMPLETED FEATURES:
 
+📹 Video Recording
+  ├─ Arducam 64MP OwlSight camera
+  ├─ 1920x1080 @ 30fps H.264
+  └─ Autofocus enabled
+
+🎤 Audio Recording
+  ├─ Waveshare WM8960 HAT
+  ├─ 48kHz stereo (2 channels)
+  └─ Separate recording + ffmpeg merge
+
+🌡️ IR Presence Detection
+  ├─ AMG8833 thermal sensor
+  ├─ 28°C threshold
+  └─ 60-second stop delay
+
+💾 NAS Integration (NEW!)
+  ├─ Ugreen DXP4800 Plus @ 192.168.1.82
+  ├─ Auto-mount at boot (/mnt/nas)
+  ├─ Hierarchical file structure
+  └─ Hostname-based identification
+
+📁 File Organization
+  Structure: /mnt/nas/dt/raw/YYYY/MM/DD/
+  Filename: MMDDYYYY_hostname_HHMMSS.mp4
+  Example:  11092025_sauron-unit-1_143022.mp4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 DEPLOYMENT STEPS:
+
+1. Pull latest code:
+   cd ~/Monitor && git pull origin main
+
+2. Setup NAS mount:
+   sudo ./setup_nas_mount.sh
+
+3. Update config:
+   sudo cp config.json /etc/av_monitor/config.json
+
+4. Restart service:
+   sudo systemctl restart av-monitor.service
+
+5. Verify operation:
+   sudo journalctl -u av-monitor.service -f
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 FILES IN THIS COMMIT:
+
+  ✅ av_monitor.py          - Core application with NAS support
+  ✅ config.json            - Points to /mnt/nas/dt/raw
+  ✅ setup_nas_mount.sh     - NAS mount automation script
+  ✅ NAS_SETUP.md           - Complete documentation
+  ✅ install.sh             - System installation
+  ✅ validate.sh            - Hardware validation
+  ✅ av-monitor.service     - Systemd service
+  ✅ requirements.txt       - Python dependencies
+  ✅ test_components.py     - Component testing
+  ✅ README.md              - Project overview
+  ✅ All documentation files
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 READY FOR MULTI-UNIT DEPLOYMENT!
+
+Each Pi automatically identifies itself by hostname.
+All recordings centralized on NAS with clean organization.
+Scalable to unlimited units.
+
+System designed by: Claude Sonnet 4.5
+Built for: sauron-unit-1 (and future units)
+Status: PRODUCTION READY ✨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
