@@ -174,7 +174,7 @@ class AVRecorder:
             '--framerate', str(self.config.video_framerate),
             '--codec', self.config.video_codec,
             '--autofocus-mode', self.config.autofocus_mode,  # Autofocus mode for 64MP camera
-            '--audio',
+            '--audio-codec', 'aac',  # Audio codec (AAC for MP4)
             '--audio-device', self.config.audio_device,
             '--audio-samplerate', str(self.config.audio_samplerate),
             '--audio-channels', str(self.config.audio_channels),
