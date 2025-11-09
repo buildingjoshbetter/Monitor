@@ -4,7 +4,7 @@ Raspberry Pi 5 A/V Monitoring System with IR Trigger
 
 Hardware Requirements:
 - Raspberry Pi 5 (Bookworm OS)
-- Arducam IMX708 camera (via CAMERA port)
+- Arducam 64MP OwlSight camera (via CAMERA port)
 - Waveshare WM8960 Audio HAT (ALSA)
 - AMG8833 IR thermal sensor (I2C)
 
@@ -65,6 +65,7 @@ class Config:
             "audio_channels": 1,
             "video_codec": "h264",  # or "h265"
             "audio_device": "plughw:1,0",  # WM8960 ALSA device
+            "autofocus_mode": "auto",  # auto, continuous, or manual
         }
         
         try:
@@ -172,6 +173,7 @@ class AVRecorder:
             '--height', height,
             '--framerate', str(self.config.video_framerate),
             '--codec', self.config.video_codec,
+            '--autofocus-mode', self.config.autofocus_mode,  # Autofocus mode for 64MP camera
             '--audio',
             '--audio-device', self.config.audio_device,
             '--audio-samplerate', str(self.config.audio_samplerate),

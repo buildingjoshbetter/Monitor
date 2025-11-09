@@ -9,6 +9,7 @@
   "audio_samplerate": 48000,
   "audio_channels": 1,
   "video_codec": "h264",
-  "audio_device": "plughw:1,0"
+  "audio_device": "plughw:1,0",
+  "autofocus_mode": "auto"
 }
 
