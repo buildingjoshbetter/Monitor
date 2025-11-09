@@ -7,7 +7,7 @@
   "video_resolution": "1920x1080",
   "video_framerate": 30,
   "audio_samplerate": 48000,
-  "audio_channels": 1,
+  "audio_channels": 2,
   "video_codec": "h264",
   "audio_device": "plughw:2,0",
   "autofocus_mode": "auto"
