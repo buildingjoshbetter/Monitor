@@ -8,7 +8,7 @@ Hardware Requirements:
 - Waveshare WM8960 Audio HAT (ALSA)
 - AMG8833 IR thermal sensor (I2C)
 - Status LEDs:
-  * Orange LED on GPIO 19 (monitoring/idle state)
+  * Orange LED on GPIO 6 (monitoring/idle state)
   * Red LED on GPIO 26 (active recording)
 
 This application monitors the AMG8833 IR sensor and automatically
@@ -93,7 +93,7 @@ class Config:
 
 class StatusLEDs:
     """Status LED controller for visual feedback"""
-    def __init__(self, orange_pin: int = 19, red_pin: int = 26):
+    def __init__(self, orange_pin: int = 6, red_pin: int = 26):
         """
         Initialize status LEDs
         

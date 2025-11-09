@@ -10,14 +10,14 @@ Visual feedback system for the AV Monitoring System.
 
 | LED Color | GPIO Pin | State | Meaning |
 |-----------|----------|-------|---------|
-| 🟠 Orange | GPIO 19 | Monitoring | System is running and searching for presence |
+| 🟠 Orange | GPIO 6 | Monitoring | System is running and searching for presence |
 | 🔴 Red | GPIO 26 | Recording | Camera and microphone are actively recording |
 
 ### Wiring Diagram
 
 ```
 Raspberry Pi GPIO
-├─ GPIO 19 ──[220Ω]──┤>├── GND  (Orange LED)
+├─ GPIO 6  ──[220Ω]──┤>├── GND  (Orange LED)
 └─ GPIO 26 ──[220Ω]──┤>├── GND  (Red LED)
 ```
 
@@ -103,7 +103,7 @@ python3 << EOF
 from gpiozero import LED
 from time import sleep
 
-orange = LED(19)
+orange = LED(6)
 red = LED(26)
 
 print("Testing Orange LED...")
@@ -141,7 +141,7 @@ The LED GPIO pins are hardcoded in the `StatusLEDs` class:
 
 ```python
 class StatusLEDs:
-    def __init__(self, orange_pin: int = 19, red_pin: int = 26):
+    def __init__(self, orange_pin: int = 6, red_pin: int = 26):
         ...
 ```
 
